@@ -4,10 +4,11 @@
 
 #ifdef _DEBUG
 	//#define IMSHOW_FRAME
-	#define IMSHOW_TOP
+	//#define IMSHOW_TOP
 	//#define IMSHOW_FILTER
 	//#define IMSHOW_EDGE
-	#define DRAW_POINT_TOP
+	//#define DRAW_POINT_TOP
+	#define HSV_TRACK_BAR
 #endif // _DEBUG
 
 #include "OpencvInit.h"
