@@ -10,9 +10,9 @@ LaneDetector::LaneDetector()
 	, right_b(Point(0, 0))
 	, left_detect(false)
 	, right_detect(false)
-	, poly_bottom_width(0.85)
-	, poly_top_width(0.07)
-	, poly_height(0.4)
+	, poly_bottom_width(1)
+	, poly_top_width(0.16)
+	, poly_height(0.35)
 	//, predict_x(0.)
 {
 }
@@ -95,7 +95,7 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 		Point2f(width * (1-poly_bottom_width) / 2, height),
 		Point2f(width - (width * (1-poly_bottom_width)) / 2, height)
 	};
-	Size warp_size(500, 400);
+	Size warp_size(width, height);
 	Mat img_top(warp_size, img_frame.type());
 	//Warping ÈÄÀÇ ÁÂÇ¥
 	vector<Point2f> warp_corners(4);
