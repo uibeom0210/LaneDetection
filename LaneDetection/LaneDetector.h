@@ -3,9 +3,9 @@
 #define _LANE_DETECTOR_
 
 #ifdef _DEBUG
-	//#define IMSHOW_FRAME
+	#define IMSHOW_FRAME
 	#define IMSHOW_TOP
-	//#define IMSHOW_FILTER
+	#define IMSHOW_FILTER
 	//#define IMSHOW_EDGE
 	#define DRAW_POINT_TOP
 #endif // _DEBUG
