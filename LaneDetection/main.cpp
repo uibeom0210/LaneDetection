@@ -20,13 +20,13 @@ static void on_high_V_thresh_trackbar(int, void*);
 int main()
 {
 	LaneDetector laneDetector;
-	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo;
-	// ¿µ»ó ºÒ·¯¿À±â
-	VideoCapture video("input_1st_lane.mp4");  
+	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo, img_roitop;
+	// ì˜ìƒ ë¶ˆëŸ¬ì˜¤ê¸°
+	VideoCapture video("input.mp4");  
 	//VideoCapture video("input01.mp4");
 	if (!video.isOpened())
 	{
-		cout << "µ¿¿µ»ó ÆÄÀÏÀ» ¿­ ¼ö ¾ø½À´Ï´Ù. \n" << endl;
+		cout << "ë™ì˜ìƒ íŒŒì¼ì„ ì—´ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. \n" << endl;
 		getchar();
 		return -1;
 	}
@@ -35,8 +35,8 @@ int main()
 	{
 		return -1;
 	}
-	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ¿øÇÏ´Â ÄÚµ¦ ¼±ÅÃ
-	//double fps = 29.97;  // ÇÁ·¹ÀÓ
+	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ì›í•˜ëŠ” ì½”ë± ì„ íƒ
+	//double fps = 29.97;  // í”„ë ˆì„
 	double fps = 25;
 
 #ifdef HSV_TRACK_BAR
@@ -54,36 +54,46 @@ int main()
 
 	while (1)
 	{
-		// 1. ¿øº» ¿µ»óÀ» ÀĞ¾î¿Â´Ù. + bilateralFilter »ç¿ë
+		// 1. ì›ë³¸ ì˜ìƒì„ ì½ì–´ì˜¨ë‹¤. + bilateralFilter ì‚¬ìš©
 		if (!video.read(img_frame))
 		{
 			break;
 		}
 		img_top = laneDetector.makeTopView(img_frame);
 		bilateralFilter(img_top, img_bilater, 10, 50, 50);
-		// 2. Èò»ö, ³ë¶õ»ö ¹üÀ§ ³»¿¡ ÀÖ´Â °Í¸¸ ÇÊÅÍ¸µÇÏ¿© Â÷¼± ÈÄº¸·Î ÀúÀåÇÑ´Ù.
+		// 2. í°ìƒ‰, ë…¸ë€ìƒ‰ ë²”ìœ„ ë‚´ì— ìˆëŠ” ê²ƒë§Œ í•„í„°ë§í•˜ì—¬ ì°¨ì„  í›„ë³´ë¡œ ì €ì¥í•œë‹¤.
+
+
+
 
 #ifdef HSV_TRACK_BAR
 		// Convert from BGR to HSV colorspace
-		cvtColor(img_frame, frame_HSV, COLOR_BGR2HSV);
+		cvtColor(img_bilater, frame_HSV, COLOR_BGR2HSV);
 		// Detect the object based on HSV Range Values
 		inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), frame_threshold);
 		// Show the frames
-		imshow(window_capture_name, frame_HSV);
+		imshow(window_capture_name, img_frame);
 		imshow("object detect", frame_threshold);
 		img_filter = frame_HSV;
 #else
 		img_filter = laneDetector.filterColors(img_bilater);
 #endif // HSV_TRACK_BAR
 
-		// 3. ¿µ»óÀ» GrayScale À¸·Î º¯È¯ÇÑ´Ù.
+		// 3. ROIë¡œ ì‚¬ê°í˜• ì˜ì—­ ì„¤ì •
+		Mat img_roitop = img_filter.clone();
+		Mat img_draw_rois = laneDetector.makeROI(img_roitop);
+#ifdef IMSHOW_ROI
+		imshow("img_roitop", img_draw_rois);
+#endif // IMSHOW_ROI
+
+		// 4. ì˜ìƒì„ GrayScale ìœ¼ë¡œ ë³€í™˜í•œë‹¤.
 		cvtColor(img_filter, img_filter, COLOR_BGR2GRAY);
 #ifdef IMSHOW_FILTER
 		imshow("img_filter", img_filter);
 #endif // IMSHOW_FILTER
 
-		// 4. Canny Edge DetectionÀ¸·Î ¿¡Áö¸¦ ÃßÃâ.
-		// (ÀâÀ½ Á¦°Å¸¦ À§ÇÑ Gaussian ÇÊÅÍ¸µµµ Æ÷ÇÔ)
+		// 5. Canny Edge Detectionìœ¼ë¡œ ì—ì§€ë¥¼ ì¶”ì¶œ.
+		// (ì¡ìŒ ì œê±°ë¥¼ ìœ„í•œ Gaussian í•„í„°ë§ë„ í¬í•¨)
 		GaussianBlur(img_filter, img_filter, Size(9, 9), 0, 0);
 
 #ifdef IMSHOW_EDGE
@@ -96,18 +106,19 @@ int main()
 		imshow("img_histo", img_histo);
 #endif // IMSHOW_HISTO
 
-		// 5. ÁøÇà¹æÇâ ¹Ù´Ú¿¡ Á¸ÀçÇÏ´Â Â÷¼±¸¸À» °ËÃâÇÏ±â À§ÇÑ °ü½É ¿µ¿ªÀ» ÁöÁ¤
+		// 6. ì§„í–‰ë°©í–¥ ë°”ë‹¥ì— ì¡´ì¬í•˜ëŠ” ì°¨ì„ ë§Œì„ ê²€ì¶œí•˜ê¸° ìœ„í•œ ê´€ì‹¬ ì˜ì—­ì„ ì§€ì •
 		img_mask = laneDetector.limitRegion(img_edges);
+
 #ifdef IMSHOW_TOP
 		imshow("img_top", img_top);
 #endif // IMSHOW_TOP
 
 #ifdef IMSHOW_FRAME
-		// °á°ú ¿µ»ó Ãâ·Â
+		// ê²°ê³¼ ì˜ìƒ ì¶œë ¥
 		imshow("img_frame", img_frame);
 #endif // IMSHOW_FRAME
 
-		//esc Å° Á¾·á
+		//esc í‚¤ ì¢…ë£Œ
 		if (waitKey(1) == 27)
 		{
 			break;
