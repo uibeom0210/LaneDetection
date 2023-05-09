@@ -3,12 +3,13 @@
 #define _LANE_DETECTOR_
 
 #ifdef _DEBUG
-	#define IMSHOW_FRAME
-	#define IMSHOW_TOP
-	#define IMSHOW_FILTER
+	//#define IMSHOW_FRAME
+	//#define IMSHOW_TOP
+	//#define IMSHOW_FILTER
+	#define IMSHOW_ROI
 	//#define IMSHOW_EDGE
 	//#define DRAW_POINT_TOP
-	#define HSV_TRACK_BAR
+	//#define HSV_TRACK_BAR
 #endif // _DEBUG
 
 #include "OpencvInit.h"
@@ -24,6 +25,7 @@ public:
 	Mat filterColors(Mat img_frame);
 	Mat limitRegion(Mat img_edges);
 	Mat makeTopView(Mat img_frame);
+	Mat makeROI(Mat img_frame);
 	Mat drawLine(Mat img_input, vector<Point> lane, string dir);
 
 private:

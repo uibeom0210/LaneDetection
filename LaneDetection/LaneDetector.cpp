@@ -35,7 +35,7 @@ Mat LaneDetector::filterColors(Mat img_frame)
 	//차선 색깔 범위 
 	Scalar lower_white = Scalar(200, 200, 200); //흰색 차선 (RGB)
 	Scalar upper_white = Scalar(255, 255, 255);
-	Scalar lower_yellow = Scalar(10, 100, 100); //노란색 차선 (HSV)
+	Scalar lower_yellow = Scalar(10, 100, 140); //노란색 차선 (HSV)
 	Scalar upper_yellow = Scalar(40, 255, 255);
 
 	//흰색 필터링
@@ -114,6 +114,68 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 	}
 #endif // DRAW_POINT_TOP
 	return img_top;
+}
+
+Mat LaneDetector::makeROI(Mat img_filter)
+{
+	
+	const int rois = 10;  //roi 개수
+	
+	Mat img_gray, img_bin;
+	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);  
+	threshold(img_gray, img_bin, 100, 255, ThresholdTypes::THRESH_BINARY);
+	cv::Rect l_roi[rois], r_roi[rois];
+	float ratio_width = 0.3;
+	int subHeight = img_filter.rows / rois;
+	int subWidth = img_filter.cols * ratio_width; 
+
+	int l_offset = 10;
+	int r_offset = 230;
+
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+
+	for (size_t k = 0; k < rois; k++)
+	{
+		l_roi[k].x = 0+ l_offset; 
+		r_roi[k].x = img_filter.cols/2 + r_offset; 
+		l_roi[k].y = r_roi[k].y = k*subHeight;
+		l_roi[k].width = r_roi[k].width = subWidth; 
+		l_roi[k].height = r_roi[k].height = subHeight;
+
+		rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2); 
+		rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+
+		Mat subL = img_bin(l_roi[k]);
+		findContours(subL, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]); //외접하는 최소 크기 외접 사각형 찾기
+			
+			double area = contourArea(contours[i]);
+			if (area < 10)
+				continue;
+
+			Point ptCenter = rt.center;
+			Point ptCross = Point(ptCenter.x + l_roi[k].x, ptCenter.y + l_roi[k].y);
+			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			
+		}
+		Mat subR = img_bin(r_roi[k]);
+		findContours(subR, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]);
+
+			double area = contourArea(contours[i]);
+			if (area < 10)
+				continue;
+			Point ptCenter = rt.center;
+			Point ptCross = Point(ptCenter.x + r_roi[k].x, ptCenter.y + r_roi[k].y);
+			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+		}
+	}
+	return img_filter;
 }
 
 Mat LaneDetector::drawLine(Mat img_input, vector<Point> lane, string dir)
