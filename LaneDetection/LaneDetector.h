@@ -3,13 +3,14 @@
 #define _LANE_DETECTOR_
 
 #ifdef _DEBUG
-	//#define IMSHOW_FRAME
+	#define IMSHOW_FRAME
 	//#define IMSHOW_TOP
-	//#define IMSHOW_FILTER
-	#define IMSHOW_ROI
+	#define IMSHOW_FILTER
 	//#define IMSHOW_EDGE
+  #define IMSHOW_ROI
 	//#define DRAW_POINT_TOP
 	//#define HSV_TRACK_BAR
+	#define IMSHOW_HISTO
 #endif // _DEBUG
 
 #include "OpencvInit.h"
@@ -25,6 +26,7 @@ public:
 	Mat filterColors(Mat img_frame);
 	Mat limitRegion(Mat img_edges);
 	Mat makeTopView(Mat img_frame);
+	Mat makeHistogram(Mat img);
 	Mat makeROI(Mat img_frame);
 	Mat drawLine(Mat img_input, vector<Point> lane, string dir);
 
@@ -33,10 +35,10 @@ private:
 	double left_m, right_m;
 	Point left_b, right_b;
 	bool left_detect = false, right_detect = false;
-	//°ü½É ¿µ¿ª ¹üÀ§ °è»ê½Ã »ç¿ë 
-	double poly_bottom_width = 1;  //»ç´Ù¸®²Ã ¾Æ·¡ÂÊ ³Êºñ °è»êÀ» À§ÇÑ ¹éºĞÀ²
-	double poly_top_width = 0.16;  //»ç´Ù¸®²Ã À§ÂÊ ³Êºñ °è»êÀ» À§ÇÑ ¹éºĞÀ²
-	double poly_height = 0.35;     //»ç´Ù¸®²Ã ³ôÀÌ °è»êÀ» À§ÇÑ ¹éºĞÀ²
+	//ê´€ì‹¬ ì˜ì—­ ë²”ìœ„ ê³„ì‚°ì‹œ ì‚¬ìš© 
+	double poly_bottom_width = 1;  //ì‚¬ë‹¤ë¦¬ê¼´ ì•„ë˜ìª½ ë„ˆë¹„ ê³„ì‚°ì„ ìœ„í•œ ë°±ë¶„ìœ¨
+	double poly_top_width = 0.16;  //ì‚¬ë‹¤ë¦¬ê¼´ ìœ„ìª½ ë„ˆë¹„ ê³„ì‚°ì„ ìœ„í•œ ë°±ë¶„ìœ¨
+	double poly_height = 0.35;     //ì‚¬ë‹¤ë¦¬ê¼´ ë†’ì´ ê³„ì‚°ì„ ìœ„í•œ ë°±ë¶„ìœ¨
 };
 
 
