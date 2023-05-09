@@ -2,15 +2,16 @@
 #ifndef _LANE_DETECTOR_
 #define _LANE_DETECTOR_
 
+#define IMSHOW_ROI
 #ifdef _DEBUG
-	#define IMSHOW_FRAME
-	//#define IMSHOW_TOP
-	#define IMSHOW_FILTER
-	//#define IMSHOW_EDGE
-  #define IMSHOW_ROI
-	//#define DRAW_POINT_TOP
-	//#define HSV_TRACK_BAR
-	#define IMSHOW_HISTO
+//#define IMSHOW_FRAME
+//#define IMSHOW_TOP
+//#define IMSHOW_FILTER
+//#define IMSHOW_EDGE
+#define IMSHOW_HISTO
+//#define DRAW_POINT_TOP
+//#define HSV_TRACK_BAR
+#define IMSHOW_ROI
 #endif // _DEBUG
 
 #include "OpencvInit.h"
@@ -26,7 +27,7 @@ public:
 	Mat filterColors(Mat img_frame);
 	Mat limitRegion(Mat img_edges);
 	Mat makeTopView(Mat img_frame);
-	Mat makeHistogram(Mat img);
+	void getPosition(Mat img);
 	Mat makeROI(Mat img_frame);
 	Mat drawLine(Mat img_input, vector<Point> lane, string dir);
 
@@ -39,6 +40,7 @@ private:
 	double poly_bottom_width = 1;  //사다리꼴 아래쪽 너비 계산을 위한 백분율
 	double poly_top_width = 0.16;  //사다리꼴 위쪽 너비 계산을 위한 백분율
 	double poly_height = 0.35;     //사다리꼴 높이 계산을 위한 백분율
+	int initial_pos[2] = { 50, 230 };
 };
 
 

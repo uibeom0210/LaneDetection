@@ -89,11 +89,11 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 
 	const int poly_pts = 4;
 	vector<Point2f> points = {
-		Point2f(width * (1-poly_top_width) / 2, height - height * poly_height),
+		Point2f(width * (1 - poly_top_width) / 2, height - height * poly_height),
 		Point2f(width - (width * (1 - poly_top_width)) / 2,
 												height - height * poly_height),
-		Point2f(width * (1-poly_bottom_width) / 2, height),
-		Point2f(width - (width * (1-poly_bottom_width)) / 2, height)
+		Point2f(width * (1 - poly_bottom_width) / 2, height),
+		Point2f(width - (width * (1 - poly_bottom_width)) / 2, height)
 	};
 	Size warp_size(width, height);
 	Mat img_top(warp_size, img_frame.type());
@@ -116,19 +116,25 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 	return img_top;
 }
 
-Mat LaneDetector::makeHistogram(Mat img)
+void LaneDetector::getPosition(Mat img)
 {
+	const int left = 0, right = 1;
 	int width = img.cols;
 	int height = img.rows;
-	vector<int> _vHistogram(width, 0);
+	float ratio_width = 0.20;
+	int subWidth = width * ratio_width;
+	int max_left = 0, max_right = 0;
+	vector<int> v_histogram(width, 0);
+	int v_pos[2] = {0};
 	for (int col = 0; col < width; col++)
 	{
 		for (int row = 0; row < height; row++)
 		{
 			int index = row * width + col;
-			_vHistogram[col] += img.data[index];
+			v_histogram[col] += img.data[index];
 		}
 	}
+#ifdef IMSHOW_HISTO
 	Mat output = Mat::zeros(height, width, CV_8UC1);
 	int y_pix = 0;
 	int x_pix = 0;
@@ -136,69 +142,166 @@ Mat LaneDetector::makeHistogram(Mat img)
 	int thickness = 1;
 	for (int col = 0; col < width; col++)
 	{
-		line(output, Point(col, 0), Point(col, _vHistogram[col] / 200),
+		line(output, Point(col, 0), Point(col, v_histogram[col] / 150),
 			Scalar(255), 1, lineType);
 	}
-	return output;
+	imshow("img_histo", output);
+#endif // IMSHOW_HISTO
+
+	for (int pos = 0; pos < (width / 2); pos++)
+	{
+		if (max_left < v_histogram[pos])
+		{
+			max_left = v_histogram[pos];
+			v_pos[left] = pos;
+		}
+	}
+	for (int pos = (width / 2); pos < width; pos++)
+	{
+		if (max_right < v_histogram[pos])
+		{
+			max_right = v_histogram[pos];
+			v_pos[right] = pos;
+		}
+	}
+	if (v_pos[left] < (subWidth / 2))
+	{
+		v_pos[left] = 0;
+	}
+	else
+	{
+		v_pos[left] -= (subWidth / 2);
+	}
+	if (v_pos[right] > (width - (subWidth / 2)))
+	{
+		v_pos[right] = width - subWidth;
+	}
+	else
+	{
+		v_pos[right] -= (subWidth / 2);
+	}
+	initial_pos[left] = v_pos[left];
+	initial_pos[right] = v_pos[right];
 }
 
 Mat LaneDetector::makeROI(Mat img_filter)
 {
-	
 	const int rois = 10;  //roi 개수
-	
+	const int left = 0, right = 1;
+
 	Mat img_gray, img_bin;
-	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);  
+	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);
 	threshold(img_gray, img_bin, 100, 255, ThresholdTypes::THRESH_BINARY);
 	cv::Rect l_roi[rois], r_roi[rois];
-	float ratio_width = 0.3;
+	cv::Rect l_roi_remain, r_roi_remain;
 	int subHeight = img_filter.rows / rois;
-	int subWidth = img_filter.cols * ratio_width; 
-
-	int l_offset = 10;
-	int r_offset = 230;
-
+	float ratio_width = 0.20;
+	int subWidth = img_filter.cols * ratio_width;
+	getPosition(img_bin);
+	int width = img_bin.cols;
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 
 	for (size_t k = 0; k < rois; k++)
 	{
-		l_roi[k].x = 0+ l_offset; 
-		r_roi[k].x = img_filter.cols/2 + r_offset; 
-		l_roi[k].y = r_roi[k].y = k*subHeight;
-		l_roi[k].width = r_roi[k].width = subWidth; 
-		l_roi[k].height = r_roi[k].height = subHeight;
+		l_roi[k].x  = initial_pos[left];
+		r_roi[k].x  = initial_pos[right];
+		if (l_roi_remain.x == 0)
+		{
+			l_roi_remain.x = initial_pos[left];
+		}
+		if (r_roi_remain.x == 0)
+		{
+			r_roi_remain.x = initial_pos[right];
+		}
+		l_roi[k].y = r_roi[k].y = k * subHeight;
+		l_roi[k].width = r_roi[k].width = l_roi_remain.width = r_roi_remain.width = subWidth;
+		l_roi[k].height = r_roi[k].height = l_roi_remain.height = r_roi_remain.height = subHeight;
 
-		rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2); 
-		rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+		//rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
+		//rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
 
 		Mat subL = img_bin(l_roi[k]);
 		findContours(subL, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+		vector<Point> v_ptCross;
+		vector<double> v_area;
+		double max = 0.0;
+		int max_index = 0;
 		for (size_t i = 0; i < contours.size(); i++)
 		{
 			RotatedRect rt = minAreaRect(contours[i]); //외접하는 최소 크기 외접 사각형 찾기
-			
 			double area = contourArea(contours[i]);
 			if (area < 10)
+			{
 				continue;
-
+			}
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + l_roi[k].x, ptCenter.y + l_roi[k].y);
-			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
-			
+			v_area.push_back(area);
+			v_ptCross.push_back(ptCross);
 		}
+		if (v_area.size() == 0)
+		{
+			l_roi_remain.y = l_roi_remain.y + subHeight;
+			l_roi[k] = l_roi_remain;
+			rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
+		}
+		else
+		{
+			for (size_t i = 0; i < v_area.size(); i++)
+			{
+				if (v_area[i] > max)
+				{
+					max = v_area[i];
+					max_index = i;
+				}
+			}
+			drawMarker(img_filter, v_ptCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
+			l_roi[k].x = 0 + v_ptCross[max_index].x * 0.5;
+			l_roi_remain.x = l_roi[k].x;
+			l_roi_remain.y = l_roi[k].y;
+			rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
+		}
+		v_ptCross.clear();
+		v_area.clear();
+		max = 0.0;
+		max_index = 0;
+
 		Mat subR = img_bin(r_roi[k]);
 		findContours(subR, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < contours.size(); i++)
 		{
 			RotatedRect rt = minAreaRect(contours[i]);
-
 			double area = contourArea(contours[i]);
 			if (area < 10)
+			{
 				continue;
+			}
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + r_roi[k].x, ptCenter.y + r_roi[k].y);
-			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			v_area.push_back(area);
+			v_ptCross.push_back(ptCross);
+		}
+		if (v_area.size() == 0)
+		{
+			rectangle(img_filter, r_roi_remain, Scalar(0, 0, 255), 2);
+			r_roi_remain.y = r_roi_remain.y + subHeight;
+		}
+		else
+		{
+			for (size_t i = 0; i < v_area.size(); i++)
+			{
+				if (v_area[i] > max)
+				{
+					max = v_area[i];
+					max_index = i;
+				}
+			}
+			drawMarker(img_filter, v_ptCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
+			r_roi[k].x = (img_filter.cols / 2) + v_ptCross[max_index].x * 0.3;
+			rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+			r_roi_remain.x = r_roi[k].x;
+			r_roi_remain.y = r_roi[k].y + subHeight;;
 		}
 	}
 	return img_filter;
