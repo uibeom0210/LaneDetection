@@ -22,7 +22,7 @@ int main()
 	LaneDetector laneDetector;
 	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo, img_roitop;
 	// 영상 불러오기
-	VideoCapture video("input.mp4");  
+	VideoCapture video("input.mp4");
 	//VideoCapture video("input01.mp4");
 	if (!video.isOpened())
 	{
@@ -31,7 +31,7 @@ int main()
 		return -1;
 	}
 	video.read(img_frame);
-	if (img_frame.empty()) 
+	if (img_frame.empty())
 	{
 		return -1;
 	}
@@ -60,11 +60,12 @@ int main()
 			break;
 		}
 		img_top = laneDetector.makeTopView(img_frame);
+#ifdef IMSHOW_TOP
+		imshow("img_top", img_top);
+#endif // IMSHOW_TOP
+
 		bilateralFilter(img_top, img_bilater, 10, 50, 50);
 		// 2. 흰색, 노란색 범위 내에 있는 것만 필터링하여 차선 후보로 저장한다.
-
-
-
 
 #ifdef HSV_TRACK_BAR
 		// Convert from BGR to HSV colorspace
@@ -86,8 +87,7 @@ int main()
 		imshow("img_roitop", img_draw_rois);
 #endif // IMSHOW_ROI
 
-		// 4. 영상을 GrayScale 으로 변환한다.
-		cvtColor(img_filter, img_filter, COLOR_BGR2GRAY);
+
 #ifdef IMSHOW_FILTER
 		imshow("img_filter", img_filter);
 #endif // IMSHOW_FILTER
@@ -101,17 +101,8 @@ int main()
 		imshow("img_edge", img_edges);
 #endif // IMSHOW_EDGE
 
-#ifdef IMSHOW_HISTO
-		img_histo = laneDetector.makeHistogram(img_filter);
-		imshow("img_histo", img_histo);
-#endif // IMSHOW_HISTO
-
 		// 6. 진행방향 바닥에 존재하는 차선만을 검출하기 위한 관심 영역을 지정
 		img_mask = laneDetector.limitRegion(img_edges);
-
-#ifdef IMSHOW_TOP
-		imshow("img_top", img_top);
-#endif // IMSHOW_TOP
 
 #ifdef IMSHOW_FRAME
 		// 결과 영상 출력
