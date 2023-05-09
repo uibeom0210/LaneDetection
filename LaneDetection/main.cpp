@@ -20,7 +20,7 @@ static void on_high_V_thresh_trackbar(int, void*);
 int main()
 {
 	LaneDetector laneDetector;
-	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top;
+	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo;
 	// 영상 불러오기
 	VideoCapture video("input_1st_lane.mp4");  
 	//VideoCapture video("input01.mp4");
@@ -85,20 +85,28 @@ int main()
 		// 4. Canny Edge Detection으로 에지를 추출.
 		// (잡음 제거를 위한 Gaussian 필터링도 포함)
 		GaussianBlur(img_filter, img_filter, Size(9, 9), 0, 0);
-		Canny(img_filter, img_edges, 50, 150);
+
 #ifdef IMSHOW_EDGE
+		Canny(img_filter, img_edges, 50, 150);
 		imshow("img_edge", img_edges);
 #endif // IMSHOW_EDGE
+
+#ifdef IMSHOW_HISTO
+		img_histo = laneDetector.makeHistogram(img_filter);
+		imshow("img_histo", img_histo);
+#endif // IMSHOW_HISTO
 
 		// 5. 진행방향 바닥에 존재하는 차선만을 검출하기 위한 관심 영역을 지정
 		img_mask = laneDetector.limitRegion(img_edges);
 #ifdef IMSHOW_TOP
 		imshow("img_top", img_top);
 #endif // IMSHOW_TOP
+
 #ifdef IMSHOW_FRAME
 		// 결과 영상 출력
 		imshow("img_frame", img_frame);
 #endif // IMSHOW_FRAME
+
 		//esc 키 종료
 		if (waitKey(1) == 27)
 		{

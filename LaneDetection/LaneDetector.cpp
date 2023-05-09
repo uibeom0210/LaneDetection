@@ -116,6 +116,32 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 	return img_top;
 }
 
+Mat LaneDetector::makeHistogram(Mat img)
+{
+	int width = img.cols;
+	int height = img.rows;
+	vector<int> _vHistogram(width, 0);
+	for (int col = 0; col < width; col++)
+	{
+		for (int row = 0; row < height; row++)
+		{
+			int index = row * width + col;
+			_vHistogram[col] += img.data[index];
+		}
+	}
+	Mat output = Mat::zeros(height, width, CV_8UC1);
+	int y_pix = 0;
+	int x_pix = 0;
+	int lineType = LINE_8;
+	int thickness = 1;
+	for (int col = 0; col < width; col++)
+	{
+		line(output, Point(col, 0), Point(col, _vHistogram[col] / 200),
+			Scalar(255), 1, lineType);
+	}
+	return output;
+}
+
 Mat LaneDetector::drawLine(Mat img_input, vector<Point> lane, string dir)
 {
 	return Mat();
