@@ -136,7 +136,7 @@ Mat LaneDetector::makeHistogram(Mat img)
 	int thickness = 1;
 	for (int col = 0; col < width; col++)
 	{
-		line(output, Point(col, 0), Point(col, _vHistogram[col] / 200),
+		line(output, Point(col, 0), Point(col, _vHistogram[col] / 100),
 			Scalar(255), 1, lineType);
 	}
 	return output;
@@ -151,26 +151,27 @@ Mat LaneDetector::makeROI(Mat img_filter)
 	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);  
 	threshold(img_gray, img_bin, 100, 255, ThresholdTypes::THRESH_BINARY);
 	cv::Rect l_roi[rois], r_roi[rois];
-	float ratio_width = 0.3;
+	float ratio_width = 0.20;
 	int subHeight = img_filter.rows / rois;
 	int subWidth = img_filter.cols * ratio_width; 
 
-	int l_offset = 10;
-	int r_offset = 230;
+	int l_offset = 50;
+	int r_offset = img_filter.cols/4;
 
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 
 	for (size_t k = 0; k < rois; k++)
 	{
+		
 		l_roi[k].x = 0+ l_offset; 
 		r_roi[k].x = img_filter.cols/2 + r_offset; 
 		l_roi[k].y = r_roi[k].y = k*subHeight;
 		l_roi[k].width = r_roi[k].width = subWidth; 
 		l_roi[k].height = r_roi[k].height = subHeight;
 
-		rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2); 
-		rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+		//rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2); 
+		//rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
 
 		Mat subL = img_bin(l_roi[k]);
 		findContours(subL, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -185,6 +186,8 @@ Mat LaneDetector::makeROI(Mat img_filter)
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + l_roi[k].x, ptCenter.y + l_roi[k].y);
 			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			l_roi[k].x = 0 + ptCross.x * 0.5;
+			rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
 			
 		}
 		Mat subR = img_bin(r_roi[k]);
@@ -199,6 +202,8 @@ Mat LaneDetector::makeROI(Mat img_filter)
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + r_roi[k].x, ptCenter.y + r_roi[k].y);
 			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			r_roi[k].x = (img_filter.cols / 2) + ptCross.x * 0.3;
+			rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
 		}
 	}
 	return img_filter;

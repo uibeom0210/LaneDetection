@@ -5,12 +5,13 @@
 #ifdef _DEBUG
 	#define IMSHOW_FRAME
 	//#define IMSHOW_TOP
-	#define IMSHOW_FILTER
+	//#define IMSHOW_FILTER
 	//#define IMSHOW_EDGE
-  #define IMSHOW_ROI
+	#define IMSHOW_ROI
 	//#define DRAW_POINT_TOP
 	//#define HSV_TRACK_BAR
-	#define IMSHOW_HISTO
+	//#define IMSHOW_HISTO
+	//#define IMSHOW_MASK
 #endif // _DEBUG
 
 #include "OpencvInit.h"

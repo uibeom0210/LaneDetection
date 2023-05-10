@@ -63,9 +63,6 @@ int main()
 		bilateralFilter(img_top, img_bilater, 10, 50, 50);
 		// 2. 흰색, 노란색 범위 내에 있는 것만 필터링하여 차선 후보로 저장한다.
 
-
-
-
 #ifdef HSV_TRACK_BAR
 		// Convert from BGR to HSV colorspace
 		cvtColor(img_bilater, frame_HSV, COLOR_BGR2HSV);
@@ -82,6 +79,7 @@ int main()
 		// 3. ROI로 사각형 영역 설정
 		Mat img_roitop = img_filter.clone();
 		Mat img_draw_rois = laneDetector.makeROI(img_roitop);
+
 #ifdef IMSHOW_ROI
 		imshow("img_roitop", img_draw_rois);
 #endif // IMSHOW_ROI
@@ -96,8 +94,9 @@ int main()
 		// (잡음 제거를 위한 Gaussian 필터링도 포함)
 		GaussianBlur(img_filter, img_filter, Size(9, 9), 0, 0);
 
-#ifdef IMSHOW_EDGE
 		Canny(img_filter, img_edges, 50, 150);
+
+#ifdef IMSHOW_EDGE
 		imshow("img_edge", img_edges);
 #endif // IMSHOW_EDGE
 
@@ -108,6 +107,11 @@ int main()
 
 		// 6. 진행방향 바닥에 존재하는 차선만을 검출하기 위한 관심 영역을 지정
 		img_mask = laneDetector.limitRegion(img_edges);
+
+#ifdef IMSHOW_MASK
+		// 결과 영상 출력
+		imshow("img_mask", img_mask);
+#endif // IMSHOW_MASK
 
 #ifdef IMSHOW_TOP
 		imshow("img_top", img_top);
