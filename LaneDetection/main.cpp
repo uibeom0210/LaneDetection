@@ -2,16 +2,31 @@
 #include <iostream>
 #include "LaneDetector.h"
 
+#ifdef HSV_TRACK_BAR
+const int max_value_H = 360 / 2;
+const int max_value = 255;
+const String window_capture_name = "Video Capture";
+const String window_detection_name = "Object Trackbar";
+int low_H = 10, low_S = 100, low_V = 100;
+int high_H = 40, high_S = 255, high_V = 255;
+static void on_high_H_thresh_trackbar(int, void*);
+static void on_low_H_thresh_trackbar(int, void*);
+static void on_low_S_thresh_trackbar(int, void*);
+static void on_high_S_thresh_trackbar(int, void*);
+static void on_low_V_thresh_trackbar(int, void*);
+static void on_high_V_thresh_trackbar(int, void*);
+#endif // HSV_TRACK_BAR
+
 int main()
 {
 	LaneDetector laneDetector;
-	Mat img_frame, img_filter, img_edges, img_mask, img_top;
-	// øµªÛ ∫“∑Øø¿±‚
+	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo, img_roitop;
+	// ÏòÅÏÉÅ Î∂àÎü¨Ïò§Í∏∞
 	VideoCapture video("input.mp4");  
 	//VideoCapture video("input01.mp4");
 	if (!video.isOpened())
 	{
-		cout << "µøøµªÛ ∆ƒ¿œ¿ª ø≠ ºˆ æ¯Ω¿¥œ¥Ÿ. \n" << endl;
+		cout << "ÎèôÏòÅÏÉÅ ÌååÏùºÏùÑ Ïó¥ Ïàò ÏóÜÏäµÎãàÎã§. \n" << endl;
 		getchar();
 		return -1;
 	}
@@ -20,42 +35,94 @@ int main()
 	{
 		return -1;
 	}
-	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ø¯«œ¥¬ ƒ⁄µ¶ º±≈√
-	//double fps = 29.97;  // «¡∑π¿”
+	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ÏõêÌïòÎäî ÏΩîÎç± ÏÑ†ÌÉù
+	//double fps = 29.97;  // ÌîÑÎ†àÏûÑ
 	double fps = 25;
+
+#ifdef HSV_TRACK_BAR
+	namedWindow(window_capture_name);
+	namedWindow(window_detection_name);
+	// Trackbars to set thresholds for HSV values
+	createTrackbar("Low H", window_detection_name, &low_H, max_value_H, on_low_H_thresh_trackbar);
+	createTrackbar("High H", window_detection_name, &high_H, max_value_H, on_high_H_thresh_trackbar);
+	createTrackbar("Low S", window_detection_name, &low_S, max_value, on_low_S_thresh_trackbar);
+	createTrackbar("High S", window_detection_name, &high_S, max_value, on_high_S_thresh_trackbar);
+	createTrackbar("Low V", window_detection_name, &low_V, max_value, on_low_V_thresh_trackbar);
+	createTrackbar("High V", window_detection_name, &high_V, max_value, on_high_V_thresh_trackbar);
+	Mat frame_HSV, frame_threshold;
+#endif // HSV_TRACK_BAR
+
 	while (1)
 	{
-		// 1. ø¯∫ª øµªÛ¿ª ¿–æÓø¬¥Ÿ.
+		// 1. ÏõêÎ≥∏ ÏòÅÏÉÅÏùÑ ÏùΩÏñ¥Ïò®Îã§. + bilateralFilter ÏÇ¨Ïö©
 		if (!video.read(img_frame))
 		{
 			break;
 		}
-		// 2. »Úªˆ, ≥Î∂ıªˆ π¸¿ß ≥ªø° ¿÷¥¬ ∞Õ∏∏ « ≈Õ∏µ«œø© ¬˜º± »ƒ∫∏∑Œ ¿˙¿Â«—¥Ÿ.
-		img_filter = laneDetector.filterColors(img_frame);
+		img_top = laneDetector.makeTopView(img_frame);
+		bilateralFilter(img_top, img_bilater, 10, 50, 50);
+		// 2. Ìù∞ÏÉâ, ÎÖ∏ÎûÄÏÉâ Î≤îÏúÑ ÎÇ¥Ïóê ÏûàÎäî Í≤ÉÎßå ÌïÑÌÑ∞ÎßÅÌïòÏó¨ Ï∞®ÏÑ† ÌõÑÎ≥¥Î°ú Ï†ÄÏû•ÌïúÎã§.
 
-		// 3. øµªÛ¿ª GrayScale ¿∏∑Œ ∫Ø»Ø«—¥Ÿ.
+#ifdef HSV_TRACK_BAR
+		// Convert from BGR to HSV colorspace
+		cvtColor(img_bilater, frame_HSV, COLOR_BGR2HSV);
+		// Detect the object based on HSV Range Values
+		inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), frame_threshold);
+		// Show the frames
+		imshow(window_capture_name, img_frame);
+		imshow("object detect", frame_threshold);
+		img_filter = frame_HSV;
+#else
+		img_filter = laneDetector.filterColors(img_bilater);
+#endif // HSV_TRACK_BAR
+
+		// 3. ROIÎ°ú ÏÇ¨Í∞ÅÌòï ÏòÅÏó≠ ÏÑ§Ï†ï
+		Mat img_roitop = img_filter.clone();
+		Mat img_draw_rois = laneDetector.makeROI(img_roitop);
+
+#ifdef IMSHOW_ROI
+		imshow("img_roitop", img_draw_rois);
+#endif // IMSHOW_ROI
+
+		// 4. ÏòÅÏÉÅÏùÑ GrayScale ÏúºÎ°ú Î≥ÄÌôòÌïúÎã§.
 		cvtColor(img_filter, img_filter, COLOR_BGR2GRAY);
 #ifdef IMSHOW_FILTER
 		imshow("img_filter", img_filter);
 #endif // IMSHOW_FILTER
 
-		// 4. Canny Edge Detection¿∏∑Œ ø°¡ˆ∏¶ √ﬂ√‚.
-		// (¿‚¿Ω ¡¶∞≈∏¶ ¿ß«— Gaussian « ≈Õ∏µµµ ∆˜«‘)
+		// 5. Canny Edge DetectionÏúºÎ°ú ÏóêÏßÄÎ•º Ï∂îÏ∂ú.
+		// (Ïû°Ïùå Ï†úÍ±∞Î•º ÏúÑÌïú Gaussian ÌïÑÌÑ∞ÎßÅÎèÑ Ìè¨Ìï®)
+		GaussianBlur(img_filter, img_filter, Size(9, 9), 0, 0);
+
 		Canny(img_filter, img_edges, 50, 150);
+
 #ifdef IMSHOW_EDGE
 		imshow("img_edge", img_edges);
 #endif // IMSHOW_EDGE
 
-		// 5. ¡¯«‡πÊ«‚ πŸ¥⁄ø° ¡∏¿Á«œ¥¬ ¬˜º±∏∏¿ª ∞À√‚«œ±‚ ¿ß«— ∞¸Ω… øµø™¿ª ¡ˆ¡§
+#ifdef IMSHOW_HISTO
+		img_histo = laneDetector.makeHistogram(img_filter);
+		imshow("img_histo", img_histo);
+#endif // IMSHOW_HISTO
+
+		// 6. ÏßÑÌñâÎ∞©Ìñ• Î∞îÎã•Ïóê Ï°¥Ïû¨ÌïòÎäî Ï∞®ÏÑ†ÎßåÏùÑ Í≤ÄÏ∂úÌïòÍ∏∞ ÏúÑÌïú Í¥ÄÏã¨ ÏòÅÏó≠ÏùÑ ÏßÄÏ†ï
 		img_mask = laneDetector.limitRegion(img_edges);
-		img_top = laneDetector.makeTopView(img_frame);
+
+#ifdef IMSHOW_MASK
+		// Í≤∞Í≥º ÏòÅÏÉÅ Ï∂úÎ†•
+		imshow("img_mask", img_mask);
+#endif // IMSHOW_MASK
+
 #ifdef IMSHOW_TOP
 		imshow("img_top", img_top);
 #endif // IMSHOW_TOP
-		// ∞·∞˙ øµªÛ √‚∑¬
-		imshow("img_frame", img_frame);
 
-		//esc ≈∞ ¡æ∑·
+#ifdef IMSHOW_FRAME
+		// Í≤∞Í≥º ÏòÅÏÉÅ Ï∂úÎ†•
+		imshow("img_frame", img_frame);
+#endif // IMSHOW_FRAME
+
+		//esc ÌÇ§ Ï¢ÖÎ£å
 		if (waitKey(1) == 27)
 		{
 			break;
@@ -63,3 +130,35 @@ int main()
 	}
 	return 0;
 }
+#ifdef HSV_TRACK_BAR
+static void on_low_H_thresh_trackbar(int, void*)
+{
+	low_H = min(high_H - 1, low_H);
+	setTrackbarPos("Low H", window_detection_name, low_H);
+}
+static void on_high_H_thresh_trackbar(int, void*)
+{
+	high_H = max(high_H, low_H + 1);
+	setTrackbarPos("High H", window_detection_name, high_H);
+}
+static void on_low_S_thresh_trackbar(int, void*)
+{
+	low_S = min(high_S - 1, low_S);
+	setTrackbarPos("Low S", window_detection_name, low_S);
+}
+static void on_high_S_thresh_trackbar(int, void*)
+{
+	high_S = max(high_S, low_S + 1);
+	setTrackbarPos("High S", window_detection_name, high_S);
+}
+static void on_low_V_thresh_trackbar(int, void*)
+{
+	low_V = min(high_V - 1, low_V);
+	setTrackbarPos("Low V", window_detection_name, low_V);
+}
+static void on_high_V_thresh_trackbar(int, void*)
+{
+	high_V = max(high_V, low_V + 1);
+	setTrackbarPos("High V", window_detection_name, high_V);
+}
+#endif // HSV_TRACK_BAR

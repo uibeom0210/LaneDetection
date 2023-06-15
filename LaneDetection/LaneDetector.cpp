@@ -10,9 +10,9 @@ LaneDetector::LaneDetector()
 	, right_b(Point(0, 0))
 	, left_detect(false)
 	, right_detect(false)
-	, poly_bottom_width(0.85)
-	, poly_top_width(0.07)
-	, poly_height(0.4)
+	, poly_bottom_width(1)
+	, poly_top_width(0.16)
+	, poly_height(0.35)
 	//, predict_x(0.)
 {
 }
@@ -24,7 +24,7 @@ LaneDetector::~LaneDetector()
 Mat LaneDetector::filterColors(Mat img_frame)
 {
 	/*
-		Èò»ö/³ë¶õ»ö »ö»óÀÇ ¹üÀ§¸¦ Á¤ÇØ ÇØ´çµÇ´Â Â÷¼±À» ÇÊÅÍ¸µÇÑ´Ù.
+		í°ìƒ‰/ë…¸ë€ìƒ‰ ìƒ‰ìƒì˜ ë²”ìœ„ë¥¼ ì •í•´ í•´ë‹¹ë˜ëŠ” ì°¨ì„ ì„ í•„í„°ë§í•œë‹¤.
 	*/
 	Mat output;
 	UMat img_hsv;
@@ -32,23 +32,23 @@ Mat LaneDetector::filterColors(Mat img_frame)
 	UMat yellow_mask, yellow_image;
 	img_frame.copyTo(output);
 
-	//Â÷¼± »ö±ò ¹üÀ§ 
-	Scalar lower_white = Scalar(200, 200, 200); //Èò»ö Â÷¼± (RGB)
+	//ì°¨ì„  ìƒ‰ê¹” ë²”ìœ„ 
+	Scalar lower_white = Scalar(200, 200, 200); //í°ìƒ‰ ì°¨ì„  (RGB)
 	Scalar upper_white = Scalar(255, 255, 255);
-	Scalar lower_yellow = Scalar(10, 100, 100); //³ë¶õ»ö Â÷¼± (HSV)
+	Scalar lower_yellow = Scalar(10, 100, 140); //ë…¸ë€ìƒ‰ ì°¨ì„  (HSV)
 	Scalar upper_yellow = Scalar(40, 255, 255);
 
-	//Èò»ö ÇÊÅÍ¸µ
+	//í°ìƒ‰ í•„í„°ë§
 	inRange(output, lower_white, upper_white, white_mask);
 	bitwise_and(output, output, white_image, white_mask);
 
 	cvtColor(output, img_hsv, COLOR_BGR2HSV);
 
-	//³ë¶õ»ö ÇÊÅÍ¸µ
+	//ë…¸ë€ìƒ‰ í•„í„°ë§
 	inRange(img_hsv, lower_yellow, upper_yellow, yellow_mask);
 	bitwise_and(output, output, yellow_image, yellow_mask);
 
-	//µÎ ¿µ»óÀ» ÇÕÄ£´Ù.
+	//ë‘ ì˜ìƒì„ í•©ì¹œë‹¤.
 	addWeighted(white_image, 1.0, yellow_image, 1.0, 0.0, output);
 	return output;
 }
@@ -56,8 +56,8 @@ Mat LaneDetector::filterColors(Mat img_frame)
 Mat LaneDetector::limitRegion(Mat img_edges)
 {
 	/*
-		°ü½É ¿µ¿ªÀÇ °¡ÀåÀÚ¸®¸¸ °¨ÁöµÇµµ·Ï ¸¶½ºÅ·ÇÑ´Ù.
-		°ü½É ¿µ¿ªÀÇ °¡ÀåÀÚ¸®¸¸ Ç¥½ÃµÇ´Â ÀÌÁø ¿µ»óÀ» ¹İÈ¯ÇÑ´Ù.
+		ê´€ì‹¬ ì˜ì—­ì˜ ê°€ì¥ìë¦¬ë§Œ ê°ì§€ë˜ë„ë¡ ë§ˆìŠ¤í‚¹í•œë‹¤.
+		ê´€ì‹¬ ì˜ì—­ì˜ ê°€ì¥ìë¦¬ë§Œ í‘œì‹œë˜ëŠ” ì´ì§„ ì˜ìƒì„ ë°˜í™˜í•œë‹¤.
 	*/
 	int width = img_edges.cols;
 	int height = img_edges.rows;
@@ -65,7 +65,7 @@ Mat LaneDetector::limitRegion(Mat img_edges)
 	Mat output;
 	Mat mask = Mat::zeros(height, width, CV_8UC1);
 
-	//°ü½É ¿µ¿ª Á¤Á¡ °è»ê
+	//ê´€ì‹¬ ì˜ì—­ ì •ì  ê³„ì‚°
 	Point points[4]{
 		Point(width * (1 - poly_bottom_width) / 2, height),
 		Point(width * (1 - poly_top_width) / 2, height - height * poly_height),
@@ -74,10 +74,10 @@ Mat LaneDetector::limitRegion(Mat img_edges)
 		Point(width - (width * (1 - poly_bottom_width)) / 2, height)
 	};
 
-	//Á¤Á¡À¸·Î Á¤ÀÇµÈ ´Ù°¢Çü ³»ºÎÀÇ »ö»óÀ» Ã¤¿ö ±×¸°´Ù.
+	//ì •ì ìœ¼ë¡œ ì •ì˜ëœ ë‹¤ê°í˜• ë‚´ë¶€ì˜ ìƒ‰ìƒì„ ì±„ì›Œ ê·¸ë¦°ë‹¤.
 	fillConvexPoly(mask, points, 4, Scalar(255, 0, 0));
 
-	//°á°ú¸¦ ¾ò±â À§ÇØ edges ÀÌ¹ÌÁö¿Í mask¸¦ °öÇÑ´Ù.
+	//ê²°ê³¼ë¥¼ ì–»ê¸° ìœ„í•´ edges ì´ë¯¸ì§€ì™€ maskë¥¼ ê³±í•œë‹¤.
 	bitwise_and(img_edges, mask, output);
 	return output;
 }
@@ -95,15 +95,15 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 		Point2f(width * (1-poly_bottom_width) / 2, height),
 		Point2f(width - (width * (1-poly_bottom_width)) / 2, height)
 	};
-	Size warp_size(500, 400);
+	Size warp_size(width, height);
 	Mat img_top(warp_size, img_frame.type());
-	//Warping ÈÄÀÇ ÁÂÇ¥
+	//Warping í›„ì˜ ì¢Œí‘œ
 	vector<Point2f> warp_corners(4);
 	warp_corners[0] = Point2f(0, 0);
 	warp_corners[1] = Point2f(img_top.cols, 0);
 	warp_corners[2] = Point2f(0, img_top.rows);
 	warp_corners[3] = Point2f(img_top.cols, img_top.rows);
-	//Transformation Matrix ±¸ÇÏ±â
+	//Transformation Matrix êµ¬í•˜ê¸°
 	Mat trans = getPerspectiveTransform(points, warp_corners);
 	//Warping
 	warpPerspective(img_frame, img_top, trans, warp_size);
@@ -114,6 +114,99 @@ Mat LaneDetector::makeTopView(Mat img_frame)
 	}
 #endif // DRAW_POINT_TOP
 	return img_top;
+}
+
+Mat LaneDetector::makeHistogram(Mat img)
+{
+	int width = img.cols;
+	int height = img.rows;
+	vector<int> _vHistogram(width, 0);
+	for (int col = 0; col < width; col++)
+	{
+		for (int row = 0; row < height; row++)
+		{
+			int index = row * width + col;
+			_vHistogram[col] += img.data[index];
+		}
+	}
+	Mat output = Mat::zeros(height, width, CV_8UC1);
+	int y_pix = 0;
+	int x_pix = 0;
+	int lineType = LINE_8;
+	int thickness = 1;
+	for (int col = 0; col < width; col++)
+	{
+		line(output, Point(col, 0), Point(col, _vHistogram[col] / 100),
+			Scalar(255), 1, lineType);
+	}
+	return output;
+}
+
+Mat LaneDetector::makeROI(Mat img_filter)
+{
+	
+	const int rois = 10;  //roi ê°œìˆ˜
+	
+	Mat img_gray, img_bin;
+	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);  
+	threshold(img_gray, img_bin, 100, 255, ThresholdTypes::THRESH_BINARY);
+	cv::Rect l_roi[rois], r_roi[rois];
+	float ratio_width = 0.20;
+	int subHeight = img_filter.rows / rois;
+	int subWidth = img_filter.cols * ratio_width; 
+
+	int l_offset = 50;
+	int r_offset = img_filter.cols/4;
+
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+
+	for (size_t k = 0; k < rois; k++)
+	{
+		
+		l_roi[k].x = 0+ l_offset; 
+		r_roi[k].x = img_filter.cols/2 + r_offset; 
+		l_roi[k].y = r_roi[k].y = k*subHeight;
+		l_roi[k].width = r_roi[k].width = subWidth; 
+		l_roi[k].height = r_roi[k].height = subHeight;
+
+		//rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2); 
+		//rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+
+		Mat subL = img_bin(l_roi[k]);
+		findContours(subL, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]); //ì™¸ì ‘í•˜ëŠ” ìµœì†Œ í¬ê¸° ì™¸ì ‘ ì‚¬ê°í˜• ì°¾ê¸°
+			
+			double area = contourArea(contours[i]);
+			if (area < 10)
+				continue;
+
+			Point ptCenter = rt.center;
+			Point ptCross = Point(ptCenter.x + l_roi[k].x, ptCenter.y + l_roi[k].y);
+			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			l_roi[k].x = 0 + ptCross.x * 0.5;
+			rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
+			
+		}
+		Mat subR = img_bin(r_roi[k]);
+		findContours(subR, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < contours.size(); i++)
+		{
+			RotatedRect rt = minAreaRect(contours[i]);
+
+			double area = contourArea(contours[i]);
+			if (area < 10)
+				continue;
+			Point ptCenter = rt.center;
+			Point ptCross = Point(ptCenter.x + r_roi[k].x, ptCenter.y + r_roi[k].y);
+			drawMarker(img_filter, ptCross, Scalar(255, 0, 255), MARKER_CROSS);
+			r_roi[k].x = (img_filter.cols / 2) + ptCross.x * 0.3;
+			rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
+		}
+	}
+	return img_filter;
 }
 
 Mat LaneDetector::drawLine(Mat img_input, vector<Point> lane, string dir)
