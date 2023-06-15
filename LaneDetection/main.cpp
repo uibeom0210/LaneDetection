@@ -20,13 +20,14 @@ static void on_high_V_thresh_trackbar(int, void*);
 int main()
 {
 	LaneDetector laneDetector;
-	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo, img_roitop;
-	// ì˜ìƒ ë¶ˆëŸ¬ì˜¤ê¸°
+	LaneDetector::drawDataInfo drawData;
+	Mat img_frame, img_bilater, img_filter, img_edges, img_mask, img_top, img_histo, trans;
+	// ¿µ»ó ºÒ·¯¿À±â
 	VideoCapture video("input.mp4");
 	//VideoCapture video("input01.mp4");
 	if (!video.isOpened())
 	{
-		cout << "ë™ì˜ìƒ íŒŒì¼ì„ ì—´ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. \n" << endl;
+		cout << "µ¿¿µ»ó ÆÄÀÏÀ» ¿­ ¼ö ¾ø½À´Ï´Ù. \n" << endl;
 		getchar();
 		return -1;
 	}
@@ -35,8 +36,8 @@ int main()
 	{
 		return -1;
 	}
-	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ì›í•˜ëŠ” ì½”ë± ì„ íƒ
-	//double fps = 29.97;  // í”„ë ˆì„
+	int codec = VideoWriter::fourcc('X', 'V', 'I', 'D');  // ¿øÇÏ´Â ÄÚµ¦ ¼±ÅÃ
+	//double fps = 29.97;  // ÇÁ·¹ÀÓ
 	double fps = 25;
 
 #ifdef HSV_TRACK_BAR
@@ -54,7 +55,7 @@ int main()
 
 	while (1)
 	{
-		// 1. ì›ë³¸ ì˜ìƒì„ ì½ì–´ì˜¨ë‹¤. + bilateralFilter ì‚¬ìš©
+		// 1. ¿øº» ¿µ»óÀ» ÀĞ¾î¿Â´Ù. + bilateralFilter »ç¿ë
 		if (!video.read(img_frame))
 		{
 			break;
@@ -65,7 +66,7 @@ int main()
 #endif // IMSHOW_TOP
 
 		bilateralFilter(img_top, img_bilater, 10, 50, 50);
-		// 2. í°ìƒ‰, ë…¸ë€ìƒ‰ ë²”ìœ„ ë‚´ì— ìˆëŠ” ê²ƒë§Œ í•„í„°ë§í•˜ì—¬ ì°¨ì„  í›„ë³´ë¡œ ì €ì¥í•œë‹¤.
+		// 2. Èò»ö, ³ë¶õ»ö ¹üÀ§ ³»¿¡ ÀÖ´Â °Í¸¸ ÇÊÅÍ¸µÇÏ¿© Â÷¼± ÈÄº¸·Î ÀúÀåÇÑ´Ù.
 
 #ifdef HSV_TRACK_BAR
 		// Convert from BGR to HSV colorspace
@@ -80,20 +81,43 @@ int main()
 		img_filter = laneDetector.filterColors(img_bilater);
 #endif // HSV_TRACK_BAR
 
-		// 3. ROIë¡œ ì‚¬ê°í˜• ì˜ì—­ ì„¤ì •
-		Mat img_roitop = img_filter.clone();
-		Mat img_draw_rois = laneDetector.makeROI(img_roitop);
-#ifdef IMSHOW_ROI
-		imshow("img_roitop", img_draw_rois);
-#endif // IMSHOW_ROI
-
-
 #ifdef IMSHOW_FILTER
 		imshow("img_filter", img_filter);
 #endif // IMSHOW_FILTER
 
-		// 5. Canny Edge Detectionìœ¼ë¡œ ì—ì§€ë¥¼ ì¶”ì¶œ.
-		// (ì¡ìŒ ì œê±°ë¥¼ ìœ„í•œ Gaussian í•„í„°ë§ë„ í¬í•¨)
+		// 3. ROI·Î »ç°¢Çü ¿µ¿ª ¼³Á¤(histogramÀ» ÀÌ¿ë)
+		Mat img_roitop = img_filter.clone();
+		Mat img_draw_rois = laneDetector.makeROI(img_roitop, drawData);
+#ifdef IMSHOW_ROI
+		imshow("img_roitop", img_draw_rois);
+#endif // IMSHOW_ROI
+
+		// 4. Â÷¼± ±×¸®±â
+		Mat img_drawline = laneDetector.drawLine(img_draw_rois, drawData);
+
+		Mat draw_frame;
+		addWeighted(img_bilater, 1.0, img_drawline, 0.3, 1.0, draw_frame);
+
+//		float dist = laneDetector.GetOffsetDist();
+//		cv::line(draw_frame, Point(draw_frame.cols/2-1, draw_frame.rows/2-1), 
+//			Point(draw_frame.cols / 2 - 1 + dist, draw_frame.rows / 2 - 1), Scalar(0, 255, 255), 5, LINE_AA);
+//		cv::arrowedLine(draw_frame, Point(draw_frame.cols / 2 - 1, draw_frame.rows / 2 - 1),
+//			Point(draw_frame.cols / 2 - 1 + dist, draw_frame.rows / 2 - 1), Scalar(255, 0, 255), 5);
+
+#ifdef IMSHOW_LINE
+		imshow("img_drawline", draw_frame);
+#endif // IMSHOW_LINE
+
+		Mat img_unwarp = laneDetector.unwarpImg(img_drawline, img_frame);
+
+#ifdef IMSHOW_UNWARP
+		imshow("img_unwarp", img_unwarp);
+#endif // IMSHOW_UNWARP
+
+		addWeighted(img_frame, 1.0, img_unwarp, 0.3, 1.0, draw_frame);
+
+		// 5. Canny Edge DetectionÀ¸·Î ¿¡Áö¸¦ ÃßÃâ.
+		// (ÀâÀ½ Á¦°Å¸¦ À§ÇÑ Gaussian ÇÊÅÍ¸µµµ Æ÷ÇÔ)
 		GaussianBlur(img_filter, img_filter, Size(9, 9), 0, 0);
 
 #ifdef IMSHOW_EDGE
@@ -101,15 +125,16 @@ int main()
 		imshow("img_edge", img_edges);
 #endif // IMSHOW_EDGE
 
-		// 6. ì§„í–‰ë°©í–¥ ë°”ë‹¥ì— ì¡´ì¬í•˜ëŠ” ì°¨ì„ ë§Œì„ ê²€ì¶œí•˜ê¸° ìœ„í•œ ê´€ì‹¬ ì˜ì—­ì„ ì§€ì •
+		// 6. ÁøÇà¹æÇâ ¹Ù´Ú¿¡ Á¸ÀçÇÏ´Â Â÷¼±¸¸À» °ËÃâÇÏ±â À§ÇÑ °ü½É ¿µ¿ªÀ» ÁöÁ¤
 		img_mask = laneDetector.limitRegion(img_edges);
 
 #ifdef IMSHOW_FRAME
-		// ê²°ê³¼ ì˜ìƒ ì¶œë ¥
-		imshow("img_frame", img_frame);
+		// °á°ú ¿µ»ó Ãâ·Â
+		//imshow("img_frame", img_frame);
+		imshow("img_frame", draw_frame);
 #endif // IMSHOW_FRAME
 
-		//esc í‚¤ ì¢…ë£Œ
+		//esc Å° Á¾·á
 		if (waitKey(1) == 27)
 		{
 			break;

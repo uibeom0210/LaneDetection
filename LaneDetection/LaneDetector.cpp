@@ -1,6 +1,8 @@
 
 #include "LaneDetector.h"
+#include <algorithm>
 
+Mat trans;
 LaneDetector::LaneDetector()
 	: img_size(0.)
 	, img_center(0.)
@@ -24,7 +26,7 @@ LaneDetector::~LaneDetector()
 Mat LaneDetector::filterColors(Mat img_frame)
 {
 	/*
-		í°ìƒ‰/ë…¸ë€ìƒ‰ ìƒ‰ìƒì˜ ë²”ìœ„ë¥¼ ì •í•´ í•´ë‹¹ë˜ëŠ” ì°¨ì„ ì„ í•„í„°ë§í•œë‹¤.
+		Èò»ö/³ë¶õ»ö »ö»óÀÇ ¹üÀ§¸¦ Á¤ÇØ ÇØ´çµÇ´Â Â÷¼±À» ÇÊÅÍ¸µÇÑ´Ù.
 	*/
 	Mat output;
 	UMat img_hsv;
@@ -32,23 +34,23 @@ Mat LaneDetector::filterColors(Mat img_frame)
 	UMat yellow_mask, yellow_image;
 	img_frame.copyTo(output);
 
-	//ì°¨ì„  ìƒ‰ê¹” ë²”ìœ„ 
-	Scalar lower_white = Scalar(200, 200, 200); //í°ìƒ‰ ì°¨ì„  (RGB)
+	//Â÷¼± »ö±ò ¹üÀ§ 
+	Scalar lower_white = Scalar(200, 200, 200); //Èò»ö Â÷¼± (RGB)
 	Scalar upper_white = Scalar(255, 255, 255);
-	Scalar lower_yellow = Scalar(10, 100, 140); //ë…¸ë€ìƒ‰ ì°¨ì„  (HSV)
+	Scalar lower_yellow = Scalar(10, 100, 140); //³ë¶õ»ö Â÷¼± (HSV)
 	Scalar upper_yellow = Scalar(40, 255, 255);
 
-	//í°ìƒ‰ í•„í„°ë§
+	//Èò»ö ÇÊÅÍ¸µ
 	inRange(output, lower_white, upper_white, white_mask);
 	bitwise_and(output, output, white_image, white_mask);
 
 	cvtColor(output, img_hsv, COLOR_BGR2HSV);
 
-	//ë…¸ë€ìƒ‰ í•„í„°ë§
+	//³ë¶õ»ö ÇÊÅÍ¸µ
 	inRange(img_hsv, lower_yellow, upper_yellow, yellow_mask);
 	bitwise_and(output, output, yellow_image, yellow_mask);
 
-	//ë‘ ì˜ìƒì„ í•©ì¹œë‹¤.
+	//µÎ ¿µ»óÀ» ÇÕÄ£´Ù.
 	addWeighted(white_image, 1.0, yellow_image, 1.0, 0.0, output);
 	return output;
 }
@@ -56,8 +58,8 @@ Mat LaneDetector::filterColors(Mat img_frame)
 Mat LaneDetector::limitRegion(Mat img_edges)
 {
 	/*
-		ê´€ì‹¬ ì˜ì—­ì˜ ê°€ì¥ìë¦¬ë§Œ ê°ì§€ë˜ë„ë¡ ë§ˆìŠ¤í‚¹í•œë‹¤.
-		ê´€ì‹¬ ì˜ì—­ì˜ ê°€ì¥ìë¦¬ë§Œ í‘œì‹œë˜ëŠ” ì´ì§„ ì˜ìƒì„ ë°˜í™˜í•œë‹¤.
+		°ü½É ¿µ¿ªÀÇ °¡ÀåÀÚ¸®¸¸ °¨ÁöµÇµµ·Ï ¸¶½ºÅ·ÇÑ´Ù.
+		°ü½É ¿µ¿ªÀÇ °¡ÀåÀÚ¸®¸¸ Ç¥½ÃµÇ´Â ÀÌÁø ¿µ»óÀ» ¹İÈ¯ÇÑ´Ù.
 	*/
 	int width = img_edges.cols;
 	int height = img_edges.rows;
@@ -65,7 +67,7 @@ Mat LaneDetector::limitRegion(Mat img_edges)
 	Mat output;
 	Mat mask = Mat::zeros(height, width, CV_8UC1);
 
-	//ê´€ì‹¬ ì˜ì—­ ì •ì  ê³„ì‚°
+	//°ü½É ¿µ¿ª Á¤Á¡ °è»ê
 	Point points[4]{
 		Point(width * (1 - poly_bottom_width) / 2, height),
 		Point(width * (1 - poly_top_width) / 2, height - height * poly_height),
@@ -74,46 +76,59 @@ Mat LaneDetector::limitRegion(Mat img_edges)
 		Point(width - (width * (1 - poly_bottom_width)) / 2, height)
 	};
 
-	//ì •ì ìœ¼ë¡œ ì •ì˜ëœ ë‹¤ê°í˜• ë‚´ë¶€ì˜ ìƒ‰ìƒì„ ì±„ì›Œ ê·¸ë¦°ë‹¤.
+	//Á¤Á¡À¸·Î Á¤ÀÇµÈ ´Ù°¢Çü ³»ºÎÀÇ »ö»óÀ» Ã¤¿ö ±×¸°´Ù.
 	fillConvexPoly(mask, points, 4, Scalar(255, 0, 0));
 
-	//ê²°ê³¼ë¥¼ ì–»ê¸° ìœ„í•´ edges ì´ë¯¸ì§€ì™€ maskë¥¼ ê³±í•œë‹¤.
+	//°á°ú¸¦ ¾ò±â À§ÇØ edges ÀÌ¹ÌÁö¿Í mask¸¦ °öÇÑ´Ù.
 	bitwise_and(img_edges, mask, output);
 	return output;
 }
 
+
 Mat LaneDetector::makeTopView(Mat img_frame)
 {
-	int width = img_frame.size().width;
-	int height = img_frame.size().height;
+	img_Size = img_frame.size();
+
+	int width = img_frame.cols;
+	int height = img_frame.rows;
 
 	const int poly_pts = 4;
-	vector<Point2f> points = {
-		Point2f(width * (1 - poly_top_width) / 2, height - height * poly_height),
-		Point2f(width - (width * (1 - poly_top_width)) / 2,
-												height - height * poly_height),
-		Point2f(width * (1 - poly_bottom_width) / 2, height),
-		Point2f(width - (width * (1 - poly_bottom_width)) / 2, height)
-	};
-	Size warp_size(width, height);
-	Mat img_top(warp_size, img_frame.type());
-	//Warping í›„ì˜ ì¢Œí‘œ
-	vector<Point2f> warp_corners(4);
-	warp_corners[0] = Point2f(0, 0);
-	warp_corners[1] = Point2f(img_top.cols, 0);
-	warp_corners[2] = Point2f(0, img_top.rows);
-	warp_corners[3] = Point2f(img_top.cols, img_top.rows);
-	//Transformation Matrix êµ¬í•˜ê¸°
-	Mat trans = getPerspectiveTransform(points, warp_corners);
+	vector<Point2f> OriginAreaPts(poly_pts);
+	OriginAreaPts[0] = Point2f(width * (1 - poly_top_width) / 2, height - height * poly_height);
+	OriginAreaPts[1] = Point2f(width - (width * (1 - poly_top_width)) / 2, height - height * poly_height);
+	OriginAreaPts[2] = Point2f(width * (1 - poly_bottom_width) / 2, height);
+	OriginAreaPts[3] = Point2f(width - (width * (1 - poly_bottom_width)) / 2, height);
+
+	//Warping ÈÄÀÇ ÁÂÇ¥
+	vector<Point2f> WarpAreaPts(poly_pts);
+	WarpAreaPts[0] = Point2f(0, 0);
+	WarpAreaPts[1] = Point2f(img_frame.cols - 1, 0);
+	WarpAreaPts[2] = Point2f(0, img_frame.rows - 1);
+	WarpAreaPts[3] = Point2f(img_frame.cols - 1, img_frame.rows - 1);
+
+	//Transformation Matrix ±¸ÇÏ±â
+	trans = getPerspectiveTransform(OriginAreaPts, WarpAreaPts);
 	//Warping
-	warpPerspective(img_frame, img_top, trans, warp_size);
+	Mat img_topView;
+	warpPerspective(img_frame, img_topView, trans, img_frame.size());
+
+
+
+
+	//Mat img_unwarp;
+	//Mat trans_inv = trans.inv();
+	//warpPerspective(img_topView, img_unwarp, trans_inv, img_topView.size(), INTER_LINEAR);
+
+
+
+
 #ifdef DRAW_POINT_TOP
 	for (int i = 0; i < points.size(); i++)
 	{
 		circle(img_frame, points[i], 3, Scalar(0, 255, 0), 3);
 	}
 #endif // DRAW_POINT_TOP
-	return img_top;
+	return img_topView;
 }
 
 void LaneDetector::getPosition(Mat img)
@@ -125,13 +140,13 @@ void LaneDetector::getPosition(Mat img)
 	int subWidth = width * ratio_width;
 	int max_left = 0, max_right = 0;
 	vector<int> v_histogram(width, 0);
-	int v_pos[2] = {0};
+	int v_pos[2] = { 0 };
 	for (int col = 0; col < width; col++)
 	{
 		for (int row = 0; row < height; row++)
 		{
-			int index = row * width + col;
-			v_histogram[col] += img.data[index];
+			int index = row * width + col;   // 2Â÷¿ø ÀÌ¹ÌÁöÀÇ ÇÈ¼¿À» 1Â÷¿ø ¹è¿­ÀÇ ÀÎµ¦½º·Î º¯È¯ÇÏ±â À§ÇØ °ø½Ä »ç¿ë
+			v_histogram[col] += img.data[index]; //º¤ÅÍ¿¡ °¢ ¿­ÀÇ È÷½ºÅä±×·¥ °ªÀ» ´©Àû
 		}
 	}
 #ifdef IMSHOW_HISTO
@@ -148,6 +163,7 @@ void LaneDetector::getPosition(Mat img)
 	imshow("img_histo", output);
 #endif // IMSHOW_HISTO
 
+	//	¿ŞÂÊ Â÷¼±°ú ¿À¸¥ÂÊ Â÷¼±ÀÇ ÃÖ´ë È÷½ºÅä±×·¥ °ªÀ» Ã£¾Æ v_pos ¹è¿­¿¡ ÇØ´ç ¿­ÀÇ À§Ä¡¸¦ ÀúÀå
 	for (int pos = 0; pos < (width / 2); pos++)
 	{
 		if (max_left < v_histogram[pos])
@@ -164,6 +180,8 @@ void LaneDetector::getPosition(Mat img)
 			v_pos[right] = pos;
 		}
 	}
+
+	//	¼­ºê ¿µ¿ªÀÇ ³Êºñ(subWidth)¸¦ ±âÁØÀ¸·Î ¿ŞÂÊ°ú ¿À¸¥ÂÊ Â÷¼±ÀÇ À§Ä¡¸¦ Á¶Á¤
 	if (v_pos[left] < (subWidth / 2))
 	{
 		v_pos[left] = 0;
@@ -180,32 +198,41 @@ void LaneDetector::getPosition(Mat img)
 	{
 		v_pos[right] -= (subWidth / 2);
 	}
+
+	//	ÃÊ±â À§Ä¡(initial_pos) ¹è¿­¿¡ ¿ŞÂÊ°ú ¿À¸¥ÂÊ Â÷¼±ÀÇ À§Ä¡¸¦ ÀúÀå
 	initial_pos[left] = v_pos[left];
 	initial_pos[right] = v_pos[right];
 }
 
-Mat LaneDetector::makeROI(Mat img_filter)
+Mat LaneDetector::makeROI(Mat img_filter, drawDataInfo& drawData)
 {
-	const int rois = 10;  //roi ê°œìˆ˜
+
+	drawData.vPtFind_Left.clear();
+	drawData.vPtFind_Right.clear();
+
+
 	const int left = 0, right = 1;
 
 	Mat img_gray, img_bin;
-	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);
+	cvtColor(img_filter, img_gray, COLOR_BGR2GRAY);//ÁÖ¾îÁø img_filter¸¦ grayscale·Î º¯È¯
+
+	//	ÀÌÁøÈ­¸¦ ¼öÇà,Â÷¼± ¿µ¿ªÀ» ÃßÃâ
 	threshold(img_gray, img_bin, 100, 255, ThresholdTypes::THRESH_BINARY);
-	cv::Rect l_roi[rois], r_roi[rois];
-	cv::Rect l_roi_remain, r_roi_remain;
+
+	cv::Rect l_roi_remain, r_roi_remain; //ROIÀÇ ÇÏÀ§ ¿µ¿ª ³Êºñ¿Í ³ôÀÌ¸¦ °è»ê
 	int subHeight = img_filter.rows / rois;
 	float ratio_width = 0.20;
 	int subWidth = img_filter.cols * ratio_width;
-	getPosition(img_bin);
+	//imshow("img_bin",img_bin);
+	getPosition(img_bin);  //getPosition() ÇÔ¼ö¸¦ È£ÃâÇÏ¿© ÃÊ±â Â÷¼± À§Ä¡¸¦ ¾òÀ½
 	int width = img_bin.cols;
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 
-	for (size_t k = 0; k < rois; k++)
+	for (size_t k = 0; k < rois; k++) //¿ŞÂÊ Â÷¼±°ú ¿À¸¥ÂÊ Â÷¼±ÀÇ ROI¸¦ »ı¼º ÈÄ,¿µ¿ª ³»¿¡¼­ À±°û¼±À» Ã£À½
 	{
-		l_roi[k].x  = initial_pos[left];
-		r_roi[k].x  = initial_pos[right];
+		l_roi[k].x = initial_pos[left];
+		r_roi[k].x = initial_pos[right];
 		if (l_roi_remain.x == 0)
 		{
 			l_roi_remain.x = initial_pos[left];
@@ -218,29 +245,29 @@ Mat LaneDetector::makeROI(Mat img_filter)
 		l_roi[k].width = r_roi[k].width = l_roi_remain.width = r_roi_remain.width = subWidth;
 		l_roi[k].height = r_roi[k].height = l_roi_remain.height = r_roi_remain.height = subHeight;
 
-		//rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
-		//rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
-
 		Mat subL = img_bin(l_roi[k]);
 		findContours(subL, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
-		vector<Point> v_ptCross;
-		vector<double> v_area;
+		vector<Point> vPtCross;
+		vector<double> vArea;
 		double max = 0.0;
 		int max_index = 0;
 		for (size_t i = 0; i < contours.size(); i++)
 		{
-			RotatedRect rt = minAreaRect(contours[i]); //ì™¸ì ‘í•˜ëŠ” ìµœì†Œ í¬ê¸° ì™¸ì ‘ ì‚¬ê°í˜• ì°¾ê¸°
+			RotatedRect rt = minAreaRect(contours[i]); //¿ÜÁ¢ÇÏ´Â ÃÖ¼Ò Å©±â ¿ÜÁ¢ »ç°¢Çü Ã£±â
 			double area = contourArea(contours[i]);
 			if (area < 10)
 			{
 				continue;
 			}
+
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + l_roi[k].x, ptCenter.y + l_roi[k].y);
-			v_area.push_back(area);
-			v_ptCross.push_back(ptCross);
+			vArea.push_back(area);
+			vPtCross.push_back(ptCross);
 		}
-		if (v_area.size() == 0)
+
+		//		°¡Àå Å« À±°û¼±À» ¼±ÅÃÇÏ¿© ÇØ´ç ÁöÁ¡¿¡ Ç¥½ÄÀ» ±×¸²
+		if (vArea.size() == 0) //Â÷¼±ÀÌ °ËÃâµÇÁö ¾ÊÀº °æ¿ì¿¡´Â ÀÌÀü ÇÁ·¹ÀÓÀÇ ROI¸¦ »ç¿ëÇÏ¿© À§Ä¡¸¦ Á¶Á¤
 		{
 			l_roi_remain.y = l_roi_remain.y + subHeight;
 			l_roi[k] = l_roi_remain;
@@ -248,22 +275,23 @@ Mat LaneDetector::makeROI(Mat img_filter)
 		}
 		else
 		{
-			for (size_t i = 0; i < v_area.size(); i++)
+			for (size_t i = 0; i < vArea.size(); i++)
 			{
-				if (v_area[i] > max)
+				if (vArea[i] > max)
 				{
-					max = v_area[i];
+					max = vArea[i];
 					max_index = i;
 				}
 			}
-			drawMarker(img_filter, v_ptCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
-			l_roi[k].x = 0 + v_ptCross[max_index].x * 0.5;
+			drawMarker(img_filter, vPtCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
+			l_roi[k].x = 0 + vPtCross[max_index].x * 0.5;
 			l_roi_remain.x = l_roi[k].x;
 			l_roi_remain.y = l_roi[k].y;
 			rectangle(img_filter, l_roi[k], Scalar(255, 0, 0), 2);
+			drawData.vPtFind_Left.push_back(vPtCross[max_index]); //Ç¥½Ä ±×¸° ÁöÁ¡À» ±¸Á¶Ã¼¿¡ ÀúÀå
 		}
-		v_ptCross.clear();
-		v_area.clear();
+		vPtCross.clear();
+		vArea.clear();
 		max = 0.0;
 		max_index = 0;
 
@@ -279,35 +307,380 @@ Mat LaneDetector::makeROI(Mat img_filter)
 			}
 			Point ptCenter = rt.center;
 			Point ptCross = Point(ptCenter.x + r_roi[k].x, ptCenter.y + r_roi[k].y);
-			v_area.push_back(area);
-			v_ptCross.push_back(ptCross);
+			vArea.push_back(area);
+			vPtCross.push_back(ptCross);
 		}
-		if (v_area.size() == 0)
+		if (vArea.size() == 0)
 		{
-			rectangle(img_filter, r_roi_remain, Scalar(0, 0, 255), 2);
-			r_roi_remain.y = r_roi_remain.y + subHeight;
+			if (r_roi_remain.y == 0)
+			{
+				/*
+				r_roi[k].x = r_roi[k].x - 50;
+				rectangle(img_filter, r_roi[k], Scalar(0, 255, 255), 2);
+				vPtCross[1] = Point((r_roi[k].x + width) / 2, (r_roi[k].y + subHeight) / 2);
+				drawMarker(img_filter, vPtCross[1], Scalar(255, 0, 255), MARKER_CROSS);
+				*/
+				Point markerPoint(r_roi[k].x + 50, (r_roi[k].y + subHeight) / 2);
+				drawMarker(img_filter, markerPoint, Scalar(0, 255, 255), MARKER_CROSS);
+				drawData.vPtFind_Right.push_back(markerPoint);
+				r_roi[k].x = r_roi[k].x - 40;
+				rectangle(img_filter, r_roi[k], Scalar(0, 255, 255), 2);
+			}
+			else
+			{
+				rectangle(img_filter, r_roi_remain, Scalar(0, 0, 255), 2);
+				r_roi_remain.y = r_roi_remain.y + subHeight;
+			}
 		}
 		else
 		{
-			for (size_t i = 0; i < v_area.size(); i++)
+			for (size_t i = 1; i < vArea.size(); i++)
 			{
-				if (v_area[i] > max)
+				if (vArea[i] > max)
 				{
-					max = v_area[i];
+					max = vArea[i];
 					max_index = i;
 				}
 			}
-			drawMarker(img_filter, v_ptCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
-			r_roi[k].x = (img_filter.cols / 2) + v_ptCross[max_index].x * 0.3;
+			drawMarker(img_filter, vPtCross[max_index], Scalar(255, 0, 255), MARKER_CROSS);
+			r_roi[k].x = (img_filter.cols / 2) + vPtCross[max_index].x * 0.3;
 			rectangle(img_filter, r_roi[k], Scalar(0, 0, 255), 2);
 			r_roi_remain.x = r_roi[k].x;
 			r_roi_remain.y = r_roi[k].y + subHeight;;
+			drawData.vPtFind_Right.push_back(vPtCross[max_index]); //Ç¥½Ä ±×¸° ÁöÁ¡À» ±¸Á¶Ã¼¿¡ ÀúÀå
 		}
 	}
 	return img_filter;
 }
 
-Mat LaneDetector::drawLine(Mat img_input, vector<Point> lane, string dir)
+// img_draw_rois = ´Ù°¢ÇüÀÌ ±×·ÁÁú ÀÌ¹ÌÁö
+// drawData = ´Ù°¢ÇüÀ» ±×¸®±â À§ÇÑ Á¤º¸¸¦ ´ã°í ÀÖ´Â ±¸Á¶Ã¼(Ç¥½Ä ±×¸° ÁöÁ¡À» ÀúÀåÇÑ ±¸Á¶Ã¼)
+Mat LaneDetector::drawLine(Mat img_draw_rois, drawDataInfo& drawData)
 {
-	return Mat();
+	Mat img_drawline = Mat::zeros(img_draw_rois.size(), CV_8UC3);
+	vector<Point> vPolyPts;
+	vPolyPts.clear();
+
+	vector<Point> vL, vR;
+	vL.clear();
+	vR.clear();
+	if (drawData.vPtFind_Left.size()) //¸â¹ö º¯¼ö¿¡ °¢°¢ Á¡µéÀÌ ÀÖ´Â °æ¿ì
+	{
+		vector<Point> v;
+		v.clear();
+
+		v.push_back(Point(0, drawData.vPtFind_Left[0].x));
+		for (size_t i = 0; i < drawData.vPtFind_Left.size(); i++)
+		{
+			v.push_back(Point(drawData.vPtFind_Left[i].y, drawData.vPtFind_Left[i].x));
+		}
+		v.push_back(Point(img_drawline.rows - 1, drawData.vPtFind_Left[drawData.vPtFind_Left.size() - 1].x));
+		int order = 2;
+
+		cv::Mat K = PolynomialFit_XY(v, order);
+		if (v.size() > 0) {
+			for (int j = v.at(0).x; j < v.at(v.size() - 1).x; j++) {
+
+				cv::Point2d point(j, 0);
+				for (int k = 0; k < order + 1; k++) {
+					point.y += K.at<double>(k, 0) * std::pow(j, k);
+				}
+
+				cv::Point2d point_yx(point.y, point.x);
+				vL.push_back(point_yx);
+				cv::circle(img_drawline, point_yx, 1, cv::Scalar(0, 255, 0), CV_FILLED, CV_AA);
+			}
+		}
+	}
+	if (drawData.vPtFind_Right.size())
+	{
+		vector<Point> v;
+		v.clear();
+
+		v.push_back(Point(0, drawData.vPtFind_Right[0].x));
+		for (size_t i = 0; i < drawData.vPtFind_Right.size(); i++)
+		{
+			v.push_back(Point(drawData.vPtFind_Right[i].y, drawData.vPtFind_Right[i].x));
+		}
+		v.push_back(Point(img_drawline.rows - 1, drawData.vPtFind_Right[drawData.vPtFind_Right.size() - 1].x));
+		int order = 2;
+
+		cv::Mat K = PolynomialFit_XY(v, order);
+		if (v.size() > 0) {
+			for (int j = v.at(0).x; j < v.at(v.size() - 1).x; j++) {
+
+				cv::Point2d point(j, 0);
+				for (int k = 0; k < order + 1; k++) {
+					point.y += K.at<double>(k, 0) * std::pow(j, k);
+				}
+
+				cv::Point2d point_yx(point.y, point.x);
+				vR.push_back(point_yx);
+				cv::circle(img_drawline, point_yx, 1, cv::Scalar(0, 255, 255), CV_FILLED, CV_AA);
+			}
+		}
+	}
+
+	if (vL.size())
+	{
+		size_t st = vL.size() - 1;
+		for (int i = st; i >= 0; --i)
+		{
+			vPolyPts.push_back(vL[i]);
+		}
+	}
+	if (vR.size())
+	{
+		for (size_t i = 0; i < vR.size(); i++)
+		{
+			vPolyPts.push_back(vR[i]);
+		}
+	}
+
+	{
+		if (vPolyPts.size() > 0)
+			fillPoly(img_drawline, vPolyPts, Scalar(0, 0, 255), LINE_AA);
+	}
+	return img_drawline;
 }
+
+Mat LaneDetector::unwarpImg(const Mat& img_drawline, const Mat& img_frame)
+{
+	//Mat img_unwarp;
+	//warpPerspective(img_drawline, img_unwarp, trans, Size(img_frame.cols, img_frame.rows), INTER_LINEAR);
+
+	Mat img_unwarp;
+	Mat trans_inv = trans.inv();
+	warpPerspective(img_drawline, img_unwarp, trans_inv, img_drawline.size(), INTER_LINEAR);
+
+	return img_unwarp;
+}
+
+//´ÙÇ×½ÄÀ¸·Î ÁÖ¾îÁø Á¡µéÀ» °¡Àå Àß ÇÇÆÃÇÏ´Â °è¼ö¸¦ Ã£±â À§ÇÑ ÇÔ¼ö
+cv::Mat LaneDetector::PolynomialFit_XY(std::vector<cv::Point>& pts, int order = 3)
+{
+	cv::Mat U(pts.size(), (order + 1), CV_64F);
+	cv::Mat Y(pts.size(), (1), CV_64F);
+
+	for (size_t row = 0; row < U.rows; row++)
+	{
+		for (size_t col = 0; col < U.cols; col++)
+		{
+			U.at<double>(row, col) = pow(pts[row].x, col);
+		}
+	}
+	for (size_t i = 0; i < Y.rows; i++)
+	{
+		Y.at<double>(i, 0) = pts[i].y;
+	}
+
+	cv::Mat K((order + 1), 1, CV_64F);
+
+	if (U.data != nullptr)
+	{
+		K = (U.t() * U).inv() * U.t() * Y;
+	}
+
+
+
+
+	return K;
+}
+
+
+cv::Mat LaneDetector::PolynomialFit_YX(std::vector<cv::Point>& pts, int order = 3)
+{
+	cv::Mat U(pts.size(), (order + 1), CV_64F);
+	cv::Mat Y(pts.size(), (1), CV_64F);
+
+	for (size_t row = 0; row < U.rows; row++)
+	{
+		for (size_t col = 0; col < U.cols; col++)
+		{
+			U.at<double>(row, col) = pow(pts[row].y, col);
+		}
+	}
+	for (size_t i = 0; i < Y.rows; i++)
+	{
+		Y.at<double>(i, 0) = pts[i].x;
+	}
+
+	cv::Mat K((order + 1), 1, CV_64F);
+
+	if (U.data != nullptr)
+	{
+		K = (U.t() * U).inv() * U.t() * Y;
+	}
+
+
+
+
+	return K;
+}
+
+Mat LaneDetector::getTrans()
+{
+	return trans;
+}
+
+/*
+Mat LaneDetector::drawLine(Mat img_input, vector<Point> lane, string dir) {
+	
+//		ÁÂ¿ì Â÷¼±À» °æ°è·Î ÇÏ´Â ³»ºÎ ´Ù°¢ÇüÀ» Åõ¸íÇÏ°Ô »öÀ» Ã¤¿î´Ù.
+//		¿¹Ãø ÁøÇà ¹æÇâ ÅØ½ºÆ®¸¦ ¿µ»ó¿¡ Ãâ·ÂÇÑ´Ù.
+//		ÁÂ¿ì Â÷¼±À» ¿µ»ó¿¡ ¼±À¸·Î ±×¸°´Ù.
+
+
+	vector<Point> poly_points;
+	Mat output;
+	img_input.copyTo(output);
+
+
+	poly_points.push_back(lane[2]);
+	poly_points.push_back(lane[0]);
+	poly_points.push_back(lane[1]);
+	poly_points.push_back(lane[3]);
+	fillConvexPoly(output, poly_points, Scalar(0, 230, 30), LINE_AA, 0);  //´Ù°¢Çü »ö Ã¤¿ì±â
+	addWeighted(output, 0.3, img_input, 0.7, 0, img_input);  //¿µ»ó ÇÕÇÏ±â
+
+	//¿¹Ãø ÁøÇà ¹æÇâ ÅØ½ºÆ®¸¦ ¿µ»ó¿¡ Ãâ·Â
+	putText(img_input, dir, Point(520, 100), FONT_HERSHEY_PLAIN, 3, Scalar(255, 255, 255), 3, LINE_AA);
+
+	//ÁÂ¿ì Â÷¼± ¼± ±×¸®±â
+	line(img_input, lane[0], lane[1], Scalar(0, 255, 255), 5, LINE_AA);
+	line(img_input, lane[2], lane[3], Scalar(0, 255, 255), 5, LINE_AA);
+
+
+
+	//predict horizontal direction
+	{
+		cv::Point ptCross(0, 0);
+		IntersectPoint(lane[0], lane[1], lane[2], lane[3], &ptCross);
+		//cv::circle(img_input, ptCross, 20, Scalar(0, 0, 255), 1, LINE_AA);
+		drawMarker(img_input, ptCross, Scalar(0, 0, 255), MARKER_TRIANGLE_DOWN);
+		//
+		//y = a*x+b
+		Point p1, p2;
+		Vec4d axis_line;
+		vector<Point> axis_points;
+		axis_points.push_back(Point(img_input.cols / 2 - 1, img_input.rows - 1));
+		axis_points.push_back(ptCross);
+		fitLine(axis_points, axis_line, DIST_L2, 0, 0.01, 0.01);
+		double m = axis_line[1] / axis_line[0];  //±â¿ï±â
+		Point b = cv::Point(axis_line[2], axis_line[3]);
+
+		int y1 = img_input.rows - 1;
+		int y2 = 50;// 470;
+		double x1 = ((y1 - b.y) / m) + b.x;
+		double x2 = ((y2 - b.y) / m) + b.x;
+		cv::arrowedLine(img_input, Point(x1, y1), Point(x2, y2), Scalar(255, 0, 255), 2);
+
+
+		cv::arrowedLine(img_input, Point(img_input.cols / 2 - 1, ptCross.y), ptCross, Scalar(0, 255, 0), 5);
+
+		y1 = 0;
+		y2 = img_input.rows - 1;
+		x1 = ((y1 - b.y) / m) + b.x;
+		x2 = ((y2 - b.y) / m) + b.x;
+		DrawDashedLine(img_input, Point(x1, y1), Point(x2, y2), Scalar(0, 255, 255), 2, "dotted", 10);
+
+
+	}
+
+
+	//reference center cross line
+	DrawDashedLine(img_input, Point(img_input.cols / 2 - 1, 0), Point(img_input.cols / 2 - 1, img_input.rows - 1), Scalar(0, 0, 255), 1, "", 5);
+	DrawDashedLine(img_input, Point(0, img_input.rows / 2 - 1), Point(img_input.cols - 1, img_input.rows / 2 - 1), Scalar(0, 0, 255), 1, "", 5);
+
+	return img_input;
+}
+
+
+void LaneDetector::DrawDashedLine(cv::Mat& img, cv::Point pt1, cv::Point pt2,
+	cv::Scalar color, int thickness, std::string style,
+	int gap) {
+	float dx = pt1.x - pt2.x;
+	float dy = pt1.y - pt2.y;
+	float dist = std::hypot(dx, dy);
+
+	std::vector<cv::Point> pts;
+	for (int i = 0; i < dist; i += gap) {
+		float r = static_cast<float>(i / dist);
+		int x = static_cast<int>((pt1.x * (1.0 - r) + pt2.x * r) + .5);
+		int y = static_cast<int>((pt1.y * (1.0 - r) + pt2.y * r) + .5);
+		pts.emplace_back(x, y);
+	}
+
+	int pts_size = pts.size();
+
+	if (style == "dotted") {
+		for (int i = 0; i < pts_size; ++i) {
+			cv::circle(img, pts[i], thickness, color, FILLED);
+		}
+	}
+	else {
+		cv::Point s = pts[0];
+		cv::Point e = pts[0];
+
+		for (int i = 0; i < pts_size; ++i) {
+			s = e;
+			e = pts[i];
+			if (i % 2 == 1) {
+				cv::line(img, s, e, color, thickness);
+			}
+		}
+	}
+}
+
+bool LaneDetector::IntersectPoint(const Point& pt11, const Point& pt12,
+	const Point& pt21, const Point& pt22, Point* ptCross)
+{
+	double t;
+	double s;
+	double under = (pt22.y - pt21.y) * (pt12.x - pt11.x) - (pt22.x - pt21.x) * (pt12.y - pt11.y);
+	if (under == 0) return false;
+
+	double _t = (pt22.x - pt21.x) * (pt11.y - pt21.y) - (pt22.y - pt21.y) * (pt11.x - pt21.x);
+	double _s = (pt12.x - pt11.x) * (pt11.y - pt21.y) - (pt12.y - pt11.y) * (pt11.x - pt21.x);
+
+	t = _t / under;
+	s = _s / under;
+
+	if (t < 0.0 || t>1.0 || s < 0.0 || s>1.0) return false;
+	if (_t == 0 && _s == 0) return false;
+
+	ptCross->x = pt11.x + t * (double)(pt12.x - pt11.x);
+	ptCross->y = pt11.y + t * (double)(pt12.y - pt11.y);
+
+	return true;
+}
+
+float LaneDetector::GetOffsetDist()
+{
+	Mat trans_inv = trans.inv();
+	double  x1 = 10, x2 = 90;
+
+	//topview
+	float  x = 650;//calc
+	float  y = 180;//fixed
+	double  M11 = trans.at<double>(0, 0);
+	double  M12 = trans.at<double>(0, 1);
+	double  M13 = trans.at<double>(0, 2);
+	double  M21 = trans.at<double>(1, 0);
+	double  M22 = trans.at<double>(1, 1);
+	double  M23 = trans.at<double>(1, 2);
+	double  M31 = trans.at<double>(2, 0);
+	double  M32 = trans.at<double>(2, 1);
+	double  M33 = trans.at<double>(2, 2);
+
+	//frontview
+	float newX = M11 * x + M12 * y + M13 / M31 * x + M32 * y + M33;
+	float newY = M21 * x + M22 * y + M23 / M31 * x + M32 * y + M33;
+
+	float oc_x = img_Size.width / 2 - 1;
+	float diff_x = newX - oc_x;
+	if (diff_x < 10)
+		diff_x = 0;
+	return diff_x;
+}
+*/
